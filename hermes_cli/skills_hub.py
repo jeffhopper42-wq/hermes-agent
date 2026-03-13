@@ -136,8 +136,8 @@ def do_browse(page: int = 1, page_size: int = 20, source: str = "all",
     # Collect results from all (or filtered) sources
     # Use empty query to get everything; per-source limits prevent overload
     _TRUST_RANK = {"builtin": 3, "trusted": 2, "community": 1}
-    _PER_SOURCE_LIMIT = {"official": 100, "github": 100, "clawhub": 50,
-                         "claude-marketplace": 50, "lobehub": 50}
+    _PER_SOURCE_LIMIT = {"official": 100, "superpowers": 20, "github": 100,
+                         "clawhub": 50, "claude-marketplace": 50, "lobehub": 50}
 
     all_results: list = []
     source_counts: dict = {}
@@ -727,6 +727,130 @@ def _github_publish(skill_path: Path, skill_name: str, target_repo: str,
         return False, f"Network error creating PR: {e}"
 
 
+def do_superpowers(action: str = "browse", query: str = "",
+                    console: Optional[Console] = None) -> None:
+    """Browse and install skills from the obra/superpowers marketplace.
+
+    Actions:
+        browse — List all 14 superpowers skills
+        search — Search superpowers by keyword
+        install — Install a superpowers skill
+        inspect — Preview a superpowers skill
+    """
+    from tools.skills_hub import (
+        GitHubAuth, SuperpowersSource, _SUPERPOWERS_CATALOG, SkillMeta,
+    )
+
+    c = console or _console
+
+    auth = GitHubAuth()
+    source = SuperpowersSource(auth=auth)
+
+    if action == "browse":
+        c.print("\n[bold bright_magenta]Superpowers Marketplace[/]"
+                "  [dim]— composable development workflows from obra/superpowers[/]\n")
+
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("#", style="dim", width=4, justify="right")
+        table.add_column("Skill", style="bold cyan", max_width=35)
+        table.add_column("Description", max_width=55)
+        table.add_column("Tags", style="dim", max_width=30)
+
+        for i, (name, info) in enumerate(_SUPERPOWERS_CATALOG.items(), 1):
+            table.add_row(
+                str(i),
+                name,
+                info["description"],
+                ", ".join(info["tags"]),
+            )
+
+        c.print(table)
+        c.print()
+
+        # Show which ones are already installed locally
+        try:
+            from tools.skills_tool import _find_all_skills
+            installed = {s["name"] for s in _find_all_skills()}
+            already = [n for n in _SUPERPOWERS_CATALOG if n in installed]
+            if already:
+                c.print(f"[green]Already installed:[/] {', '.join(already)}")
+            not_installed = [n for n in _SUPERPOWERS_CATALOG if n not in installed]
+            if not_installed:
+                c.print(f"[dim]Available to install:[/] {', '.join(not_installed)}")
+        except Exception:
+            pass
+
+        c.print()
+        c.print("[dim]Install:  hermes skills superpowers install <skill-name>[/]")
+        c.print("[dim]Preview:  hermes skills superpowers inspect <skill-name>[/]")
+        c.print("[dim]All:      hermes skills superpowers install --all[/]\n")
+
+    elif action == "search":
+        if not query:
+            c.print("[bold red]Usage:[/] hermes skills superpowers search <query>\n")
+            return
+        results = source.search(query, limit=14)
+        if not results:
+            c.print(f"[dim]No superpowers skills matching '{query}'.[/]\n")
+            return
+
+        c.print(f"\n[bold bright_magenta]Superpowers[/] — {len(results)} result(s) for '{query}'\n")
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Skill", style="bold cyan")
+        table.add_column("Description", max_width=55)
+        table.add_column("Identifier", style="dim")
+        for r in results:
+            table.add_row(r.name, r.description, r.identifier)
+        c.print(table)
+        c.print("[dim]Install with: hermes skills superpowers install <skill-name>[/]\n")
+
+    elif action == "install":
+        if query == "--all":
+            c.print("\n[bold bright_magenta]Installing all superpowers skills...[/]\n")
+            for name in _SUPERPOWERS_CATALOG:
+                c.print(f"[bold]--- {name} ---[/]")
+                do_install(f"superpowers/{name}", category="superpowers", console=c)
+            c.print("[bold green]All superpowers skills processed.[/]\n")
+        elif query:
+            skill_name = query.lstrip("superpowers/")
+            if skill_name not in _SUPERPOWERS_CATALOG:
+                # Try partial matching
+                matches = [n for n in _SUPERPOWERS_CATALOG if skill_name in n]
+                if len(matches) == 1:
+                    skill_name = matches[0]
+                elif matches:
+                    c.print(f"[yellow]Multiple matches for '{skill_name}':[/]")
+                    for m in matches:
+                        c.print(f"  [cyan]{m}[/]")
+                    c.print()
+                    return
+                else:
+                    c.print(f"[bold red]Error:[/] Unknown superpowers skill '{skill_name}'.\n"
+                            "Run [cyan]hermes skills superpowers browse[/] to see available skills.\n")
+                    return
+            do_install(f"superpowers/{skill_name}", category="superpowers", console=c)
+        else:
+            c.print("[bold red]Usage:[/] hermes skills superpowers install <skill-name> | --all\n")
+
+    elif action == "inspect":
+        if not query:
+            c.print("[bold red]Usage:[/] hermes skills superpowers inspect <skill-name>\n")
+            return
+        skill_name = query.lstrip("superpowers/")
+        if skill_name not in _SUPERPOWERS_CATALOG:
+            matches = [n for n in _SUPERPOWERS_CATALOG if skill_name in n]
+            if len(matches) == 1:
+                skill_name = matches[0]
+            else:
+                c.print(f"[bold red]Error:[/] Unknown superpowers skill '{skill_name}'.\n")
+                return
+        do_inspect(f"superpowers/{skill_name}", console=c)
+
+    else:
+        c.print(f"[bold red]Unknown action:[/] {action}")
+        c.print("Usage: hermes skills superpowers [browse|search|install|inspect]\n")
+
+
 def do_snapshot_export(output_path: str, console: Optional[Console] = None) -> None:
     """Export current hub skill configuration to a portable JSON file."""
     from tools.skills_hub import HubLockFile, TapsManager
@@ -845,6 +969,10 @@ def skills_command(args) -> None:
             do_snapshot_import(args.input, force=getattr(args, "force", False))
         else:
             _console.print("Usage: hermes skills snapshot [export|import]\n")
+    elif action == "superpowers":
+        sp_action = getattr(args, "superpowers_action", "browse")
+        sp_query = getattr(args, "sp_query", "")
+        do_superpowers(action=sp_action, query=sp_query)
     elif action == "tap":
         tap_action = getattr(args, "tap_action", None)
         repo = getattr(args, "repo", "") or getattr(args, "name", "")
@@ -853,7 +981,7 @@ def skills_command(args) -> None:
             return
         do_tap(tap_action, repo=repo)
     else:
-        _console.print("Usage: hermes skills [browse|search|install|inspect|list|audit|uninstall|publish|snapshot|tap]\n")
+        _console.print("Usage: hermes skills [browse|search|install|inspect|list|audit|uninstall|publish|snapshot|tap|superpowers]\n")
         _console.print("Run 'hermes skills <command> --help' for details.\n")
 
 
@@ -1012,6 +1140,14 @@ def handle_skills_slash(cmd: str, console: Optional[Console] = None) -> None:
         repo = args[1] if len(args) > 1 else ""
         do_tap(tap_action, repo=repo, console=c)
 
+    elif action == "superpowers":
+        sp_action = "browse"
+        sp_query = ""
+        if args:
+            sp_action = args[0]
+            sp_query = " ".join(args[1:]) if len(args) > 1 else ""
+        do_superpowers(action=sp_action, query=sp_query, console=c)
+
     elif action in ("help", "--help", "-h"):
         _print_skills_help(c)
 
@@ -1032,6 +1168,7 @@ def _print_skills_help(console: Console) -> None:
         "  [cyan]audit[/] [name]                Re-scan hub skills for security\n"
         "  [cyan]uninstall[/] <name>            Remove a hub-installed skill\n"
         "  [cyan]publish[/] <path> --repo <r>   Publish a skill to GitHub via PR\n"
+        "  [cyan]superpowers[/] [browse|search|install|inspect]  Superpowers marketplace\n"
         "  [cyan]snapshot[/] export|import      Export/import skill configurations\n"
         "  [cyan]tap[/] list|add|remove         Manage skill sources\n",
         title="/skills",

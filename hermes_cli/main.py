@@ -2656,6 +2656,17 @@ For more help on a command:
     tap_rm = tap_subparsers.add_parser("remove", help="Remove a tap")
     tap_rm.add_argument("name", help="Tap name to remove")
 
+    # superpowers sub-action: browse/install skills from obra/superpowers
+    skills_superpowers = skills_subparsers.add_parser("superpowers", help="Superpowers marketplace — browse and install obra/superpowers skills")
+    sp_subparsers = skills_superpowers.add_subparsers(dest="superpowers_action")
+    sp_subparsers.add_parser("browse", help="Browse all superpowers skills")
+    sp_search = sp_subparsers.add_parser("search", help="Search superpowers skills")
+    sp_search.add_argument("sp_query", help="Search query")
+    sp_install = sp_subparsers.add_parser("install", help="Install a superpowers skill")
+    sp_install.add_argument("sp_query", help="Skill name or --all")
+    sp_inspect = sp_subparsers.add_parser("inspect", help="Preview a superpowers skill")
+    sp_inspect.add_argument("sp_query", help="Skill name to preview")
+
     # config sub-action: interactive enable/disable
     skills_subparsers.add_parser("config", help="Interactive skill configuration — enable/disable individual skills")
 
