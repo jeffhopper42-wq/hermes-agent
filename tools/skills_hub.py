@@ -1175,6 +1175,250 @@ class OptionalSkillSource(SkillSource):
 
 
 # ---------------------------------------------------------------------------
+# Superpowers source adapter (obra/superpowers)
+# ---------------------------------------------------------------------------
+
+# Descriptions for the 14 superpowers skills (hardcoded to avoid extra API calls)
+_SUPERPOWERS_CATALOG = {
+    "brainstorming": {
+        "description": "Socratic brainstorming and design refinement with iterative questioning",
+        "tags": ["design", "ideation", "collaboration"],
+    },
+    "dispatching-parallel-agents": {
+        "description": "Dispatch concurrent subagents for parallel task execution",
+        "tags": ["agents", "parallelism", "delegation"],
+    },
+    "executing-plans": {
+        "description": "Batch execution of implementation plans with checkpoints and validation",
+        "tags": ["planning", "execution", "workflow"],
+    },
+    "finishing-a-development-branch": {
+        "description": "Finalize a development branch with merge/PR decisions and cleanup",
+        "tags": ["git", "branching", "workflow"],
+    },
+    "receiving-code-review": {
+        "description": "Process and act on code review feedback systematically",
+        "tags": ["code-review", "collaboration", "quality"],
+    },
+    "requesting-code-review": {
+        "description": "Request structured code reviews with clear context and expectations",
+        "tags": ["code-review", "collaboration", "quality"],
+    },
+    "subagent-driven-development": {
+        "description": "Structured delegation with fresh subagents per task and two-stage review",
+        "tags": ["agents", "delegation", "development"],
+    },
+    "systematic-debugging": {
+        "description": "4-phase root cause investigation methodology — always find root cause first",
+        "tags": ["debugging", "troubleshooting", "quality"],
+    },
+    "test-driven-development": {
+        "description": "RED-GREEN-REFACTOR cycle — no production code without a failing test first",
+        "tags": ["testing", "tdd", "quality"],
+    },
+    "using-git-worktrees": {
+        "description": "Create isolated workspaces using git worktrees for parallel development",
+        "tags": ["git", "worktrees", "workflow"],
+    },
+    "using-superpowers": {
+        "description": "Introduction to the superpowers framework — composable mandatory workflows",
+        "tags": ["meta", "framework", "introduction"],
+    },
+    "verification-before-completion": {
+        "description": "Verify work completeness and correctness before marking tasks done",
+        "tags": ["verification", "quality", "completeness"],
+    },
+    "writing-plans": {
+        "description": "Decompose tasks into bite-sized implementation plans with clear steps",
+        "tags": ["planning", "decomposition", "workflow"],
+    },
+    "writing-skills": {
+        "description": "Framework for creating new composable skills for the superpowers system",
+        "tags": ["meta", "skills", "framework"],
+    },
+}
+
+
+class SuperpowersSource(SkillSource):
+    """
+    Fetch skills from obra/superpowers — composable development workflow skills.
+
+    The superpowers project provides mandatory workflow skills (not suggestions)
+    for test-driven development, systematic debugging, planning, code review,
+    and agent-driven development. Skills are fetched from GitHub and converted
+    to Hermes SKILL.md format.
+    """
+
+    REPO = "obra/superpowers"
+    SKILLS_PATH = "skills"
+
+    def __init__(self, auth: GitHubAuth):
+        self.auth = auth
+
+    def source_id(self) -> str:
+        return "superpowers"
+
+    def trust_level_for(self, identifier: str) -> str:
+        return "trusted"
+
+    def search(self, query: str, limit: int = 10) -> List[SkillMeta]:
+        query_lower = query.lower()
+        results: List[SkillMeta] = []
+
+        for name, info in _SUPERPOWERS_CATALOG.items():
+            searchable = f"{name} {info['description']} {' '.join(info['tags'])}".lower()
+            if query_lower in searchable:
+                results.append(SkillMeta(
+                    name=name,
+                    description=info["description"],
+                    source="superpowers",
+                    identifier=f"superpowers/{name}",
+                    trust_level="trusted",
+                    repo=self.REPO,
+                    path=f"{self.SKILLS_PATH}/{name}",
+                    tags=info["tags"],
+                ))
+            if len(results) >= limit:
+                break
+
+        return results
+
+    def fetch(self, identifier: str) -> Optional[SkillBundle]:
+        # identifier format: "superpowers/skill-name"
+        skill_name = identifier.split("/", 1)[-1] if identifier.startswith("superpowers/") else identifier
+
+        if skill_name not in _SUPERPOWERS_CATALOG:
+            return None
+
+        skill_path = f"{self.SKILLS_PATH}/{skill_name}"
+        files = self._download_skill(skill_path)
+        if not files:
+            return None
+
+        # Convert to SKILL.md format if the repo uses a different filename
+        if "SKILL.md" not in files:
+            # Look for any .md file and use it as SKILL.md
+            md_file = None
+            for fname in files:
+                if fname.lower().endswith(".md"):
+                    md_file = fname
+                    break
+            if md_file:
+                content = files.pop(md_file)
+                files["SKILL.md"] = self._ensure_frontmatter(skill_name, content)
+            else:
+                return None
+
+        return SkillBundle(
+            name=skill_name,
+            files=files,
+            source="superpowers",
+            identifier=f"superpowers/{skill_name}",
+            trust_level="trusted",
+        )
+
+    def inspect(self, identifier: str) -> Optional[SkillMeta]:
+        skill_name = identifier.split("/", 1)[-1] if identifier.startswith("superpowers/") else identifier
+
+        info = _SUPERPOWERS_CATALOG.get(skill_name)
+        if not info:
+            return None
+
+        return SkillMeta(
+            name=skill_name,
+            description=info["description"],
+            source="superpowers",
+            identifier=f"superpowers/{skill_name}",
+            trust_level="trusted",
+            repo=self.REPO,
+            path=f"{self.SKILLS_PATH}/{skill_name}",
+            tags=info["tags"],
+        )
+
+    def _download_skill(self, path: str) -> Dict[str, str]:
+        """Download all files from a superpowers skill directory."""
+        url = f"https://api.github.com/repos/{self.REPO}/contents/{path}"
+        try:
+            resp = httpx.get(url, headers=self.auth.get_headers(), timeout=15)
+            if resp.status_code != 200:
+                return {}
+        except httpx.HTTPError:
+            return {}
+
+        entries = resp.json()
+        if not isinstance(entries, list):
+            return {}
+
+        files: Dict[str, str] = {}
+        for entry in entries:
+            name = entry.get("name", "")
+            entry_type = entry.get("type", "")
+
+            if entry_type == "file":
+                content = self._fetch_file(entry.get("path", ""))
+                if content is not None:
+                    files[name] = content
+            elif entry_type == "dir":
+                sub_url = f"https://api.github.com/repos/{self.REPO}/contents/{entry.get('path', '')}"
+                try:
+                    sub_resp = httpx.get(sub_url, headers=self.auth.get_headers(), timeout=15)
+                    if sub_resp.status_code == 200:
+                        sub_entries = sub_resp.json()
+                        if isinstance(sub_entries, list):
+                            for sub_entry in sub_entries:
+                                if sub_entry.get("type") == "file":
+                                    sub_content = self._fetch_file(sub_entry.get("path", ""))
+                                    if sub_content is not None:
+                                        files[f"{name}/{sub_entry['name']}"] = sub_content
+                except httpx.HTTPError:
+                    continue
+
+        return files
+
+    def _fetch_file(self, path: str) -> Optional[str]:
+        """Fetch a single file from the superpowers repo."""
+        url = f"https://api.github.com/repos/{self.REPO}/contents/{path}"
+        try:
+            resp = httpx.get(
+                url,
+                headers={**self.auth.get_headers(), "Accept": "application/vnd.github.v3.raw"},
+                timeout=15,
+            )
+            if resp.status_code == 200:
+                return resp.text
+        except httpx.HTTPError as e:
+            logger.debug("Superpowers file fetch failed: %s", e)
+        return None
+
+    def _ensure_frontmatter(self, skill_name: str, content: str) -> str:
+        """Ensure the content has proper SKILL.md frontmatter."""
+        if content.startswith("---"):
+            return content
+
+        info = _SUPERPOWERS_CATALOG.get(skill_name, {})
+        description = info.get("description", f"Superpowers skill: {skill_name}")
+        tags = info.get("tags", [])
+
+        frontmatter = "\n".join([
+            "---",
+            f"name: {skill_name}",
+            f"description: {description}",
+            "version: 1.0.0",
+            "author: obra/superpowers",
+            "license: MIT",
+            "metadata:",
+            "  hermes:",
+            f"    tags: [{', '.join(tags)}]",
+            "  superpowers:",
+            "    source: obra/superpowers",
+            "---",
+            "",
+        ])
+
+        return frontmatter + content
+
+
+# ---------------------------------------------------------------------------
 # Shared cache helpers (used by multiple adapters)
 # ---------------------------------------------------------------------------
 
@@ -1453,6 +1697,7 @@ def create_source_router(auth: Optional[GitHubAuth] = None) -> List[SkillSource]
 
     sources: List[SkillSource] = [
         OptionalSkillSource(),        # Official optional skills (highest priority)
+        SuperpowersSource(auth=auth), # obra/superpowers development workflows
         GitHubSource(auth=auth, extra_taps=extra_taps),
         ClawHubSource(),
         ClaudeMarketplaceSource(auth=auth),
