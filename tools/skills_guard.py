@@ -651,6 +651,13 @@ def should_allow_install(result: ScanResult, force: bool = False) -> Tuple[bool,
         (allowed, reason) tuple
     """
     if result.verdict == "dangerous":
+        # Trusted sources may have false positives (e.g. CLAUDE.md references);
+        # allow force-override for trusted, always block for community.
+        if force and result.trust_level in ("builtin", "trusted"):
+            return True, (
+                f"Force-installed despite DANGEROUS verdict "
+                f"({len(result.findings)} findings, {result.trust_level} source)"
+            )
         return False, f"Scan verdict is DANGEROUS ({len(result.findings)} findings). Blocked."
 
     policy = INSTALL_POLICY.get(result.trust_level, INSTALL_POLICY["community"])
@@ -1041,6 +1048,9 @@ def _resolve_trust_level(source: str) -> str:
     # Official optional skills shipped with the repo
     if source.startswith("official/") or source == "official":
         return "builtin"
+    # Superpowers source (obra/superpowers)
+    if source.startswith("superpowers/") or source == "superpowers":
+        return "trusted"
     # Check if source matches any trusted repo
     for trusted in TRUSTED_REPOS:
         if source.startswith(trusted) or source == trusted:

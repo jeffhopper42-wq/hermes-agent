@@ -1335,8 +1335,64 @@ class SuperpowersSource(SkillSource):
             tags=info["tags"],
         )
 
+    # Known main file per skill (avoids directory listing API calls)
+    _KNOWN_FILES = {
+        "brainstorming": ["skill.md"],
+        "dispatching-parallel-agents": ["skill.md"],
+        "executing-plans": ["skill.md"],
+        "finishing-a-development-branch": ["skill.md"],
+        "receiving-code-review": ["skill.md"],
+        "requesting-code-review": ["skill.md"],
+        "subagent-driven-development": ["skill.md"],
+        "systematic-debugging": ["skill.md"],
+        "test-driven-development": ["skill.md", "anti-patterns.md"],
+        "using-git-worktrees": ["skill.md"],
+        "using-superpowers": ["skill.md"],
+        "verification-before-completion": ["skill.md"],
+        "writing-plans": ["skill.md"],
+        "writing-skills": ["skill.md"],
+    }
+
     def _download_skill(self, path: str) -> Dict[str, str]:
-        """Download all files from a superpowers skill directory."""
+        """Download skill files using raw.githubusercontent.com (no API rate limit)."""
+        skill_name = path.rstrip("/").split("/")[-1]
+        known = self._KNOWN_FILES.get(skill_name, ["skill.md"])
+
+        files: Dict[str, str] = {}
+        for fname in known:
+            content = self._fetch_raw(f"{path}/{fname}")
+            if content is not None:
+                files[fname] = content
+
+        # If no known files worked, try common alternatives
+        if not files:
+            for candidate in ["SKILL.md", "skill.md", "README.md"]:
+                if candidate not in known:
+                    content = self._fetch_raw(f"{path}/{candidate}")
+                    if content is not None:
+                        files[candidate] = content
+                        break
+
+        # Fallback to API directory listing if raw fetch found nothing
+        if not files:
+            files = self._download_skill_via_api(path)
+
+        return files
+
+    def _fetch_raw(self, path: str) -> Optional[str]:
+        """Fetch a file via raw.githubusercontent.com (no rate limit)."""
+        for branch in ("main", "master"):
+            url = f"https://raw.githubusercontent.com/{self.REPO}/{branch}/{path}"
+            try:
+                resp = httpx.get(url, timeout=15, follow_redirects=True)
+                if resp.status_code == 200:
+                    return resp.text
+            except httpx.HTTPError as e:
+                logger.debug("Superpowers raw fetch failed (%s): %s", branch, e)
+        return None
+
+    def _download_skill_via_api(self, path: str) -> Dict[str, str]:
+        """Fallback: download via GitHub Contents API."""
         url = f"https://api.github.com/repos/{self.REPO}/contents/{path}"
         try:
             resp = httpx.get(url, headers=self.auth.get_headers(), timeout=15)
@@ -1352,43 +1408,12 @@ class SuperpowersSource(SkillSource):
         files: Dict[str, str] = {}
         for entry in entries:
             name = entry.get("name", "")
-            entry_type = entry.get("type", "")
-
-            if entry_type == "file":
-                content = self._fetch_file(entry.get("path", ""))
+            if entry.get("type") == "file":
+                content = self._fetch_raw(entry.get("path", ""))
                 if content is not None:
                     files[name] = content
-            elif entry_type == "dir":
-                sub_url = f"https://api.github.com/repos/{self.REPO}/contents/{entry.get('path', '')}"
-                try:
-                    sub_resp = httpx.get(sub_url, headers=self.auth.get_headers(), timeout=15)
-                    if sub_resp.status_code == 200:
-                        sub_entries = sub_resp.json()
-                        if isinstance(sub_entries, list):
-                            for sub_entry in sub_entries:
-                                if sub_entry.get("type") == "file":
-                                    sub_content = self._fetch_file(sub_entry.get("path", ""))
-                                    if sub_content is not None:
-                                        files[f"{name}/{sub_entry['name']}"] = sub_content
-                except httpx.HTTPError:
-                    continue
 
         return files
-
-    def _fetch_file(self, path: str) -> Optional[str]:
-        """Fetch a single file from the superpowers repo."""
-        url = f"https://api.github.com/repos/{self.REPO}/contents/{path}"
-        try:
-            resp = httpx.get(
-                url,
-                headers={**self.auth.get_headers(), "Accept": "application/vnd.github.v3.raw"},
-                timeout=15,
-            )
-            if resp.status_code == 200:
-                return resp.text
-        except httpx.HTTPError as e:
-            logger.debug("Superpowers file fetch failed: %s", e)
-        return None
 
     def _ensure_frontmatter(self, skill_name: str, content: str) -> str:
         """Ensure the content has proper SKILL.md frontmatter."""

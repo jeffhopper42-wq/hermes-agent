@@ -809,7 +809,8 @@ def do_superpowers(action: str = "browse", query: str = "",
             c.print("\n[bold bright_magenta]Installing all superpowers skills...[/]\n")
             for name in _SUPERPOWERS_CATALOG:
                 c.print(f"[bold]--- {name} ---[/]")
-                do_install(f"superpowers/{name}", category="superpowers", console=c)
+                do_install(f"superpowers/{name}", category="superpowers",
+                           force=True, console=c)
             c.print("[bold green]All superpowers skills processed.[/]\n")
         elif query:
             skill_name = query.lstrip("superpowers/")
