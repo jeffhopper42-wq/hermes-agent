@@ -40,6 +40,9 @@ Usage:
     hermes sessions browse     # Interactive session picker with search
     hermes claw migrate        # Migrate from OpenClaw to Hermes
     hermes claw migrate --dry-run  # Preview migration without changes
+    hermes plugin install superpowers@claude-plugins-official  # Install plugin with @source syntax
+    hermes plugin search <query>   # Search for plugins
+    hermes plugin list             # List installed plugins
 """
 
 import argparse
@@ -2680,6 +2683,46 @@ For more help on a command:
             skills_command(args)
 
     skills_parser.set_defaults(func=cmd_skills)
+
+    # =========================================================================
+    # plugin command — user-friendly name@source install syntax
+    # =========================================================================
+    plugin_parser = subparsers.add_parser(
+        "plugin",
+        help="Install and manage plugins (alias for skills with name@source syntax)",
+        description=(
+            "Install and manage plugins using the name@source syntax.\n\n"
+            "Examples:\n"
+            "  hermes plugin install superpowers@claude-plugins-official\n"
+            "  hermes plugin install brainstorming@superpowers\n"
+            "  hermes plugin search debugging@claude-plugins-official\n"
+            "  hermes plugin list\n"
+        ),
+    )
+    plugin_subparsers = plugin_parser.add_subparsers(dest="plugin_action")
+
+    plugin_install = plugin_subparsers.add_parser("install", help="Install a plugin")
+    plugin_install.add_argument("identifier", help="Plugin identifier (e.g. superpowers@claude-plugins-official)")
+    plugin_install.add_argument("--force", action="store_true", help="Install despite caution verdict")
+
+    plugin_search = plugin_subparsers.add_parser("search", help="Search for plugins")
+    plugin_search.add_argument("query", help="Search query (e.g. debugging@claude-plugins-official)")
+    plugin_search.add_argument("--limit", type=int, default=10, help="Max results")
+
+    plugin_inspect = plugin_subparsers.add_parser("inspect", help="Preview a plugin without installing")
+    plugin_inspect.add_argument("identifier", help="Plugin identifier")
+
+    plugin_list = plugin_subparsers.add_parser("list", help="List installed plugins")
+    plugin_list.add_argument("--source", default="all", choices=["all", "hub", "builtin", "local"])
+
+    plugin_uninstall = plugin_subparsers.add_parser("uninstall", help="Remove a plugin")
+    plugin_uninstall.add_argument("name", help="Plugin name to remove")
+
+    def cmd_plugin(args):
+        from hermes_cli.skills_hub import plugin_command
+        plugin_command(args)
+
+    plugin_parser.set_defaults(func=cmd_plugin)
 
     # =========================================================================
     # honcho command
