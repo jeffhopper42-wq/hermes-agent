@@ -1732,3 +1732,59 @@ def unified_search(query: str, sources: List[SkillSource],
     deduped = list(seen.values())
 
     return deduped[:limit]
+
+
+# ---------------------------------------------------------------------------
+# Plugin source aliases — maps user-friendly names to internal source IDs
+# ---------------------------------------------------------------------------
+
+# "claude-plugins-official" is the canonical alias for trusted Claude/Anthropic
+# plugin sources. It aggregates superpowers and claude-marketplace sources.
+PLUGIN_SOURCE_ALIASES: Dict[str, List[str]] = {
+    "claude-plugins-official": ["superpowers", "claude-marketplace"],
+    "superpowers": ["superpowers"],
+    "claude-marketplace": ["claude-marketplace"],
+    "official": ["official"],
+    "github": ["github"],
+    "lobehub": ["lobehub"],
+    "clawhub": ["clawhub"],
+}
+
+# Special plugin names that map to bulk install actions
+PLUGIN_BUNDLES: Dict[str, Dict[str, Any]] = {
+    "superpowers": {
+        "source_id": "superpowers",
+        "install_all": True,
+        "catalog": list(_SUPERPOWERS_CATALOG.keys()),
+        "description": "All 14 obra/superpowers development workflow skills",
+    },
+}
+
+
+def resolve_plugin_identifier(raw: str) -> Tuple[str, str, bool]:
+    """
+    Parse ``name@source`` plugin identifier syntax.
+
+    Returns (name, source_filter, is_bundle) where:
+      - name: plugin/skill name or bundle name
+      - source_filter: source ID to restrict search/fetch to ("all" if unspecified)
+      - is_bundle: True if *name* maps to a bulk-install bundle
+    """
+    if "@" in raw:
+        name, source_alias = raw.rsplit("@", 1)
+    else:
+        name, source_alias = raw, ""
+
+    # Resolve alias to first matching source ID
+    if source_alias:
+        source_ids = PLUGIN_SOURCE_ALIASES.get(source_alias)
+        if source_ids:
+            source_filter = source_ids[0]
+        else:
+            # Treat unknown alias as literal source id
+            source_filter = source_alias
+    else:
+        source_filter = "all"
+
+    is_bundle = name in PLUGIN_BUNDLES
+    return name, source_filter, is_bundle

@@ -1173,3 +1173,77 @@ def _print_skills_help(console: Console) -> None:
         "  [cyan]tap[/] list|add|remove         Manage skill sources\n",
         title="/skills",
     ))
+
+
+# ---------------------------------------------------------------------------
+# Plugin command — user-friendly wrapper with name@source syntax
+# ---------------------------------------------------------------------------
+
+def do_plugin_install(identifier: str, force: bool = False,
+                      console: Optional[Console] = None) -> None:
+    """Install a plugin using the ``name@source`` syntax.
+
+    Supports bundle names (e.g. ``superpowers``) which install all skills in
+    the bundle, and ``@source`` suffixes to restrict which registry to use
+    (e.g. ``superpowers@claude-plugins-official``).
+    """
+    from tools.skills_hub import (
+        resolve_plugin_identifier, PLUGIN_BUNDLES, _SUPERPOWERS_CATALOG,
+    )
+
+    c = console or _console
+    name, source_filter, is_bundle = resolve_plugin_identifier(identifier)
+
+    if is_bundle:
+        bundle_info = PLUGIN_BUNDLES[name]
+        c.print(f"\n[bold bright_magenta]Installing plugin bundle: {name}[/]"
+                f"  [dim]({bundle_info['description']})[/]\n")
+        catalog = bundle_info["catalog"]
+        src_prefix = bundle_info["source_id"]
+        for skill_name in catalog:
+            c.print(f"[bold]--- {skill_name} ---[/]")
+            do_install(f"{src_prefix}/{skill_name}", category=src_prefix,
+                       force=force, console=c)
+        c.print(f"\n[bold green]Plugin bundle '{name}' installation complete.[/]\n")
+    else:
+        # Single skill install — pass through to do_install with source hint
+        # If source_filter is set, try prefixing the name with it
+        if source_filter != "all" and "/" not in name:
+            prefixed = f"{source_filter}/{name}"
+            do_install(prefixed, force=force, console=c)
+        else:
+            do_install(name, force=force, console=c)
+
+
+def plugin_command(args) -> None:
+    """Router for ``hermes plugin <subcommand>`` — called from hermes_cli/main.py."""
+    action = getattr(args, "plugin_action", None)
+
+    if action == "install":
+        do_plugin_install(args.identifier, force=getattr(args, "force", False))
+    elif action == "search":
+        from tools.skills_hub import resolve_plugin_identifier
+        name, source_filter, _ = resolve_plugin_identifier(args.query)
+        do_search(name, source=source_filter, limit=getattr(args, "limit", 10))
+    elif action == "list":
+        do_list(source_filter=getattr(args, "source", "all"))
+    elif action == "inspect":
+        from tools.skills_hub import resolve_plugin_identifier
+        name, source_filter, _ = resolve_plugin_identifier(args.identifier)
+        if source_filter != "all" and "/" not in name:
+            do_inspect(f"{source_filter}/{name}")
+        else:
+            do_inspect(name)
+    elif action == "uninstall":
+        do_uninstall(args.name)
+    else:
+        _console.print(
+            "Usage: hermes plugin [install|search|list|inspect|uninstall]\n\n"
+            "  [cyan]install[/]   <name[@source]>   Install a plugin (e.g. superpowers@claude-plugins-official)\n"
+            "  [cyan]search[/]    <query[@source]>   Search for plugins\n"
+            "  [cyan]list[/]                         List installed plugins\n"
+            "  [cyan]inspect[/]   <name[@source]>    Preview a plugin\n"
+            "  [cyan]uninstall[/] <name>             Remove a plugin\n\n"
+            "[dim]Sources: claude-plugins-official, superpowers, claude-marketplace, "
+            "official, github, lobehub[/]\n"
+        )
