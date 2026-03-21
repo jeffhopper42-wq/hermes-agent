@@ -15,145 +15,193 @@ The tools are imported into model_tools.py which provides a unified interface
 for the AI agent to access all capabilities.
 """
 
-# Export all tools for easy importing
-from .web_tools import (
-    web_search_tool,
-    web_extract_tool,
-    web_crawl_tool,
-    check_firecrawl_api_key
-)
+import logging as _logging
 
-# Primary terminal tool (mini-swe-agent backend: local/docker/singularity/modal/daytona)
-from .terminal_tool import (
-    terminal_tool,
-    check_terminal_requirements,
-    cleanup_vm,
-    cleanup_all_environments,
-    get_active_environments_info,
-    register_task_env_overrides,
-    clear_task_env_overrides,
-    TERMINAL_TOOL_DESCRIPTION
-)
+_logger = _logging.getLogger(__name__)
 
-from .vision_tools import (
-    vision_analyze_tool,
-    check_vision_requirements
-)
+# ---------------------------------------------------------------------------
+# Each import block is wrapped in try/except so that the package can still be
+# imported when optional heavy dependencies (firecrawl, playwright, …) are not
+# installed.  CLI-only entry-points (e.g. `hermes plugin install`) only need
+# the skills_* modules, not every tool.
+# ---------------------------------------------------------------------------
 
-from .mixture_of_agents_tool import (
-    mixture_of_agents_tool,
-    check_moa_requirements
-)
+try:
+    from .web_tools import (
+        web_search_tool,
+        web_extract_tool,
+        web_crawl_tool,
+        check_firecrawl_api_key
+    )
+except ImportError:
+    _logger.debug("web_tools not available (missing dependency)")
 
-from .image_generation_tool import (
-    image_generate_tool,
-    check_image_generation_requirements
-)
+try:
+    from .terminal_tool import (
+        terminal_tool,
+        check_terminal_requirements,
+        cleanup_vm,
+        cleanup_all_environments,
+        get_active_environments_info,
+        register_task_env_overrides,
+        clear_task_env_overrides,
+        TERMINAL_TOOL_DESCRIPTION
+    )
+except ImportError:
+    _logger.debug("terminal_tool not available (missing dependency)")
 
-from .skills_tool import (
-    skills_list,
-    skill_view,
-    check_skills_requirements,
-    SKILLS_TOOL_DESCRIPTION
-)
+try:
+    from .vision_tools import (
+        vision_analyze_tool,
+        check_vision_requirements
+    )
+except ImportError:
+    _logger.debug("vision_tools not available (missing dependency)")
 
-from .skill_manager_tool import (
-    skill_manage,
-    check_skill_manage_requirements,
-    SKILL_MANAGE_SCHEMA
-)
+try:
+    from .mixture_of_agents_tool import (
+        mixture_of_agents_tool,
+        check_moa_requirements
+    )
+except ImportError:
+    _logger.debug("mixture_of_agents_tool not available (missing dependency)")
 
-# Browser automation tools (agent-browser + Browserbase)
-from .browser_tool import (
-    browser_navigate,
-    browser_snapshot,
-    browser_click,
-    browser_type,
-    browser_scroll,
-    browser_back,
-    browser_press,
-    browser_close,
-    browser_get_images,
-    browser_vision,
-    cleanup_browser,
-    cleanup_all_browsers,
-    get_active_browser_sessions,
-    check_browser_requirements,
-    BROWSER_TOOL_SCHEMAS
-)
+try:
+    from .image_generation_tool import (
+        image_generate_tool,
+        check_image_generation_requirements
+    )
+except ImportError:
+    _logger.debug("image_generation_tool not available (missing dependency)")
 
-# Cronjob management tools (CLI-only, hermes-cli toolset)
-from .cronjob_tools import (
-    schedule_cronjob,
-    list_cronjobs,
-    remove_cronjob,
-    check_cronjob_requirements,
-    get_cronjob_tool_definitions,
-    SCHEDULE_CRONJOB_SCHEMA,
-    LIST_CRONJOBS_SCHEMA,
-    REMOVE_CRONJOB_SCHEMA
-)
+try:
+    from .skills_tool import (
+        skills_list,
+        skill_view,
+        check_skills_requirements,
+        SKILLS_TOOL_DESCRIPTION
+    )
+except ImportError:
+    _logger.debug("skills_tool not available (missing dependency)")
 
-# RL Training tools (Tinker-Atropos)
-from .rl_training_tool import (
-    rl_list_environments,
-    rl_select_environment,
-    rl_get_current_config,
-    rl_edit_config,
-    rl_start_training,
-    rl_check_status,
-    rl_stop_training,
-    rl_get_results,
-    rl_list_runs,
-    rl_test_inference,
-    check_rl_api_keys,
-    get_missing_keys,
-)
+try:
+    from .skill_manager_tool import (
+        skill_manage,
+        check_skill_manage_requirements,
+        SKILL_MANAGE_SCHEMA
+    )
+except ImportError:
+    _logger.debug("skill_manager_tool not available (missing dependency)")
 
-# File manipulation tools (read, write, patch, search)
-from .file_tools import (
-    read_file_tool,
-    write_file_tool,
-    patch_tool,
-    search_tool,
-    get_file_tools,
-    clear_file_ops_cache,
-)
+try:
+    from .browser_tool import (
+        browser_navigate,
+        browser_snapshot,
+        browser_click,
+        browser_type,
+        browser_scroll,
+        browser_back,
+        browser_press,
+        browser_close,
+        browser_get_images,
+        browser_vision,
+        cleanup_browser,
+        cleanup_all_browsers,
+        get_active_browser_sessions,
+        check_browser_requirements,
+        BROWSER_TOOL_SCHEMAS
+    )
+except ImportError:
+    _logger.debug("browser_tool not available (missing dependency)")
 
-# Text-to-speech tools (Edge TTS / ElevenLabs / OpenAI)
-from .tts_tool import (
-    text_to_speech_tool,
-    check_tts_requirements,
-)
+try:
+    from .cronjob_tools import (
+        schedule_cronjob,
+        list_cronjobs,
+        remove_cronjob,
+        check_cronjob_requirements,
+        get_cronjob_tool_definitions,
+        SCHEDULE_CRONJOB_SCHEMA,
+        LIST_CRONJOBS_SCHEMA,
+        REMOVE_CRONJOB_SCHEMA
+    )
+except ImportError:
+    _logger.debug("cronjob_tools not available (missing dependency)")
 
-# Planning & task management tool
-from .todo_tool import (
-    todo_tool,
-    check_todo_requirements,
-    TODO_SCHEMA,
-    TodoStore,
-)
+try:
+    from .rl_training_tool import (
+        rl_list_environments,
+        rl_select_environment,
+        rl_get_current_config,
+        rl_edit_config,
+        rl_start_training,
+        rl_check_status,
+        rl_stop_training,
+        rl_get_results,
+        rl_list_runs,
+        rl_test_inference,
+        check_rl_api_keys,
+        get_missing_keys,
+    )
+except ImportError:
+    _logger.debug("rl_training_tool not available (missing dependency)")
 
-# Clarifying questions tool (interactive Q&A with the user)
-from .clarify_tool import (
-    clarify_tool,
-    check_clarify_requirements,
-    CLARIFY_SCHEMA,
-)
+try:
+    from .file_tools import (
+        read_file_tool,
+        write_file_tool,
+        patch_tool,
+        search_tool,
+        get_file_tools,
+        clear_file_ops_cache,
+    )
+except ImportError:
+    _logger.debug("file_tools not available (missing dependency)")
 
-# Code execution sandbox (programmatic tool calling)
-from .code_execution_tool import (
-    execute_code,
-    check_sandbox_requirements,
-    EXECUTE_CODE_SCHEMA,
-)
+try:
+    from .tts_tool import (
+        text_to_speech_tool,
+        check_tts_requirements,
+    )
+except ImportError:
+    _logger.debug("tts_tool not available (missing dependency)")
 
-# Subagent delegation (spawn child agents with isolated context)
-from .delegate_tool import (
-    delegate_task,
-    check_delegate_requirements,
-    DELEGATE_TASK_SCHEMA,
-)
+try:
+    from .todo_tool import (
+        todo_tool,
+        check_todo_requirements,
+        TODO_SCHEMA,
+        TodoStore,
+    )
+except ImportError:
+    _logger.debug("todo_tool not available (missing dependency)")
+
+try:
+    from .clarify_tool import (
+        clarify_tool,
+        check_clarify_requirements,
+        CLARIFY_SCHEMA,
+    )
+except ImportError:
+    _logger.debug("clarify_tool not available (missing dependency)")
+
+try:
+    from .code_execution_tool import (
+        execute_code,
+        check_sandbox_requirements,
+        EXECUTE_CODE_SCHEMA,
+    )
+except ImportError:
+    _logger.debug("code_execution_tool not available (missing dependency)")
+
+try:
+    from .delegate_tool import (
+        delegate_task,
+        check_delegate_requirements,
+        DELEGATE_TASK_SCHEMA,
+    )
+except ImportError:
+    _logger.debug("delegate_tool not available (missing dependency)")
 
 # File tools have no external requirements - they use the terminal backend
 def check_file_requirements():
@@ -261,4 +309,3 @@ __all__ = [
     'check_delegate_requirements',
     'DELEGATE_TASK_SCHEMA',
 ]
-

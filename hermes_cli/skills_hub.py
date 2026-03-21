@@ -292,9 +292,17 @@ def do_install(identifier: str, category: str = "", force: bool = False,
     q_path = quarantine_bundle(bundle)
     c.print(f"[dim]Quarantined to {q_path.relative_to(q_path.parent.parent.parent)}[/]")
 
-    # Scan
+    # Scan — use the bundle's source metadata so trust level resolves correctly
+    # (e.g. "superpowers" bundles should map to the trusted "obra/superpowers" repo)
     c.print("[bold]Running security scan...[/]")
-    result = scan_skill(q_path, source=identifier)
+    scan_source = identifier
+    if bundle:
+        scan_source = bundle.identifier
+        # Map well-known source IDs to their trusted repo identifiers
+        _SOURCE_TO_REPO = {"superpowers": "obra/superpowers"}
+        if bundle.source in _SOURCE_TO_REPO:
+            scan_source = f"{_SOURCE_TO_REPO[bundle.source]}/{bundle.name}"
+    result = scan_skill(q_path, source=scan_source)
     c.print(format_scan_report(result))
 
     # Check install policy

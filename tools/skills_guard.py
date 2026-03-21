@@ -625,6 +625,15 @@ def scan_skill(skill_path: Path, source: str = "community") -> ScanResult:
     elif skill_path.is_file():
         all_findings.extend(scan_file(skill_path, skill_path.name))
 
+    # For trusted sources, downgrade certain false-positive-prone patterns.
+    # Trusted skills (e.g. obra/superpowers) legitimately reference agent config
+    # files like CLAUDE.md as part of their workflow instructions.
+    if trust_level == "trusted":
+        _TRUSTED_DOWNGRADES = {"agent_config_mod", "other_agent_config"}
+        for f in all_findings:
+            if f.pattern_id in _TRUSTED_DOWNGRADES:
+                f.severity = "low"
+
     verdict = _determine_verdict(all_findings)
     summary = _build_summary(skill_name, source, trust_level, verdict, all_findings)
 
@@ -650,9 +659,6 @@ def should_allow_install(result: ScanResult, force: bool = False) -> Tuple[bool,
     Returns:
         (allowed, reason) tuple
     """
-    if result.verdict == "dangerous":
-        return False, f"Scan verdict is DANGEROUS ({len(result.findings)} findings). Blocked."
-
     policy = INSTALL_POLICY.get(result.trust_level, INSTALL_POLICY["community"])
     vi = VERDICT_INDEX.get(result.verdict, 2)
     decision = policy[vi]
