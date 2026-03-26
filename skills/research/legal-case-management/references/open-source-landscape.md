@@ -56,6 +56,19 @@ The open-source legal case management space spans court record platforms, law fi
   - Intellectual property tracking (renewals, multi-country, expiry dates)
 - **Relevance to Hermes**: Good feature reference for what a complete legal management system includes
 
+#### j-lawyer.org
+- **Repository**: https://github.com/jlawyerorg/j-lawyer-org
+- **Tech Stack**: Java, MySQL, WildFly
+- **License**: AGPL-3.0
+- **Focus**: Full-featured case management for law offices (Windows, macOS, Linux)
+- **Key Features**:
+  - Thunderbird email integration addon
+  - German attorney fee (RVG) calculations
+  - Hosted cloud option (j-lawyer.CLOUD)
+- **Stars**: 71 (most starred in this niche)
+- **Status**: Actively maintained (last updated February 2026)
+- **Relevance to Hermes**: Java stack doesn't align, but most mature standalone legal case management project
+
 ### Tier 2: Specialized / Niche
 
 #### LegalNexus
@@ -85,6 +98,22 @@ The open-source legal case management space spans court record platforms, law fi
 - **Status**: Hosting service shut down May 2025; self-hosted still possible
 - **Relevance to Hermes**: Niche use case; good UX reference for simple case management
 
+#### OpenUpSA Case Management
+- **Repository**: https://github.com/OpenUpSA/case-management
+- **Tech Stack**: Python/Django, React
+- **Focus**: Community case officer/manager workflows
+- **Relevance to Hermes**: One of the few Python+React case management projects; good reference for Django-based approach
+
+#### LegalNinja
+- **Repository**: https://github.com/sochetlaw/legalninja
+- **Focus**: Law firm management, billing, and accounting
+- **Relevance to Hermes**: Financial/billing reference for legal workflows
+
+#### LCM (Legal Case Management)
+- **Repository**: https://github.com/mlutfy/lcm
+- **Focus**: Legal case management for non-profit organizations
+- **Relevance to Hermes**: Simplified feature set useful for non-profit legal aid context
+
 #### Worklenz
 - **Repository**: https://github.com/Worklenz/worklenz
 - **Tech Stack**: Node.js, PostgreSQL, Angular
@@ -104,9 +133,10 @@ The open-source legal case management space spans court record platforms, law fi
 
 | Topic | Total Repos | Python | JavaScript | TypeScript |
 |-------|------------|--------|------------|------------|
-| `case-management` | 68 | 11 | 12 | -- |
+| `case-management` | 68 | 11 | 12 | 7 |
 | `legal-tech` | 364 | 167 | 33 | 69 |
 | `legaltech` | 284 | 84 | 34 | -- |
+| `lawyers` | -- | -- | -- | -- |
 
 Python dominates the legal-tech open-source space, making it a natural fit for Hermes Agent integration.
 
@@ -127,6 +157,10 @@ Python dominates the legal-tech open-source space, making it a natural fit for H
 4. **Calendar/deadline tracking** could build on Hermes's cron/scheduling system
 5. **The skill approach** (rather than a full tool) is appropriate -- legal case management is a workflow orchestration problem that benefits from LLM reasoning, not just API calls
 
+## Key Observation
+
+While Python and TypeScript dominate the broader legal-tech space (especially for AI/NLP and document automation), the dedicated "legal case management" niche is still led by Java (j-lawyer.org, ArkCase) and PHP (ClinicCases) projects that have been around longer. There is a clear opportunity for a modern Python-based legal case management system, as no single dominant project exists in Python for this specific use case. This makes Hermes Agent well-positioned to fill this gap with an AI-native approach.
+
 ## Sources
 
 - https://github.com/topics/case-management
@@ -142,3 +176,7 @@ Python dominates the legal-tech open-source space, making it a natural fit for H
 - https://www.arkcase.com/technical-stack-and-constraints/
 - https://worklenz.com/blog/05-best-open-source-case-management-software-for-your-law-firm/
 - https://www.goodfirms.co/legal-case-management-software/blog/best-free-open-source-legal-case-management-software-solutions
+- https://github.com/jlawyerorg/j-lawyer-org
+- https://github.com/OpenUpSA/case-management
+- https://github.com/sochetlaw/legalninja
+- https://github.com/mlutfy/lcm
