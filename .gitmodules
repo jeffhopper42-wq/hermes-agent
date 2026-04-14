@@ -4,3 +4,6 @@
 [submodule "tinker-atropos"]
 	path = tinker-atropos
 	url = https://github.com/nousresearch/tinker-atropos
+[submodule "gallery-wiki"]
+	path = gallery-wiki
+	url = https://github.com/google-ai-edge/gallery.wiki.git
